@@ -11,37 +11,42 @@ export default class ENV {
 		this.encoding = 'utf-8'
 		this.startTime = new Date().getTime()
 		Object.assign(this, opts)
-		this.log('', `🔔${this.name}, 开始!`)
+		this.log('', `🏁 ${this.name}, ENV v1.1.0, 开始!`)
 	}
 
-	getEnv() {
+	platform() {
 		if ('undefined' !== typeof $environment && $environment['surge-version'])
 			return 'Surge'
 		if ('undefined' !== typeof $environment && $environment['stash-version'])
 			return 'Stash'
+		if ('undefined' !== typeof module && !!module.exports) return 'Node.js'
 		if ('undefined' !== typeof $task) return 'Quantumult X'
 		if ('undefined' !== typeof $loon) return 'Loon'
 		if ('undefined' !== typeof $rocket) return 'Shadowrocket'
 	}
 
+	isNode() {
+		return 'Node.js' === this.platform()
+	}
+
 	isQuanX() {
-		return 'Quantumult X' === this.getEnv()
+		return 'Quantumult X' === this.platform()
 	}
 
 	isSurge() {
-		return 'Surge' === this.getEnv()
+		return 'Surge' === this.platform()
 	}
 
 	isLoon() {
-		return 'Loon' === this.getEnv()
+		return 'Loon' === this.platform()
 	}
 
 	isShadowrocket() {
-		return 'Shadowrocket' === this.getEnv()
+		return 'Shadowrocket' === this.platform()
 	}
 
 	isStash() {
-		return 'Stash' === this.getEnv()
+		return 'Stash' === this.platform()
 	}
 
 	toObj(str, defaultValue = null) {
@@ -81,7 +86,7 @@ export default class ENV {
 
 	getScript(url) {
 		return new Promise((resolve) => {
-			this.get({ url }, (err, resp, body) => resolve(body))
+			this.get({ url }, (error, response, body) => resolve(body))
 		})
 	}
 
@@ -106,7 +111,7 @@ export default class ENV {
 				headers: { 'X-Key': key, 'Accept': '*/*' },
 				timeout: httpapi_timeout
 			}
-			this.post(opts, (err, resp, body) => resolve(body))
+			this.post(opts, (error, response, body) => resolve(body))
 		}).catch((e) => this.logErr(e))
 	}
 
@@ -229,7 +234,7 @@ export default class ENV {
 	}
 
 	getval(key) {
-		switch (this.getEnv()) {
+		switch (this.platform()) {
 			case 'Surge':
 			case 'Loon':
 			case 'Stash':
@@ -237,13 +242,16 @@ export default class ENV {
 				return $persistentStore.read(key)
 			case 'Quantumult X':
 				return $prefs.valueForKey(key)
+			case 'Node.js':
+				this.data = this.loaddata()
+				return this.data[key]
 			default:
 				return (this.data && this.data[key]) || null
 		}
 	}
 
 	setval(val, key) {
-		switch (this.getEnv()) {
+		switch (this.platform()) {
 			case 'Surge':
 			case 'Loon':
 			case 'Stash':
@@ -251,6 +259,11 @@ export default class ENV {
 				return $persistentStore.write(val, key)
 			case 'Quantumult X':
 				return $prefs.setValueForKey(val, key)
+			case 'Node.js':
+				this.data = this.loaddata()
+				this.data[key] = val
+				this.writedata()
+				return true
 			default:
 				return (this.data && this.data[key]) || null
 		}
@@ -269,50 +282,40 @@ export default class ENV {
 	}
 
 	get(request, callback = () => { }) {
-		if (request.headers) {
-			delete request.headers['Content-Type']
-			delete request.headers['Content-Length']
+		delete request?.headers?.['Content-Length']
+		delete request?.headers?.['content-length']
 
-			// HTTP/2 全是小写
-			delete request.headers['content-type']
-			delete request.headers['content-length']
-		}
-		if (request.params) {
-			request.url += '?' + this.queryStr(request.params)
-		}
-		switch (this.getEnv()) {
+		switch (this.platform()) {
 			case 'Surge':
 			case 'Loon':
 			case 'Stash':
 			case 'Shadowrocket':
 			default:
 				if (this.isSurge() && this.isNeedRewrite) {
-					request.headers = request.headers || {}
-					Object.assign(request.headers, { 'X-Surge-Skip-Scripting': false })
+					this.lodash_set(request, 'headers.X-Surge-Skip-Scripting', false)
 				}
-				$httpClient.get(request, (err, resp, body) => {
-					if (!err && resp) {
-						resp.body = body
-						resp.statusCode = resp.status ? resp.status : resp.statusCode
-						resp.status = resp.statusCode
+				$httpClient.get(request, (error, response, body) => {
+					if (!error && response) {
+						response.body = body
+						response.statusCode = response.status ? response.status : response.statusCode
+						response.status = response.statusCode
 					}
-					callback(err, resp, body)
+					callback(error, response, body)
 				})
 				break
 			case 'Quantumult X':
 				if (this.isNeedRewrite) {
-					request.opts = request.opts || {}
-					Object.assign(request.opts, { hints: false })
+					this.lodash_set(request, 'opts.hints', false)
 				}
 				$task.fetch(request).then(
-					(resp) => {
+					(response) => {
 						const {
 							statusCode: status,
 							statusCode,
 							headers,
 							body,
 							bodyBytes
-						} = resp
+						} = response
 						callback(
 							null,
 							{ status, statusCode, headers, body, bodyBytes },
@@ -320,8 +323,53 @@ export default class ENV {
 							bodyBytes
 						)
 					},
-					(err) => callback((err && err.error) || 'UndefinedError')
+					(error) => callback((error && error.error) || 'UndefinedError')
 				)
+				break
+			case 'Node.js':
+				let iconv = require('iconv-lite')
+				this.initGotEnv(request)
+				this.got(request)
+					.on('redirect', (response, nextOpts) => {
+						try {
+							if (response.headers['set-cookie']) {
+								const ck = response.headers['set-cookie']
+									.map(this.cktough.Cookie.parse)
+									.toString()
+								if (ck) {
+									this.ckjar.setCookieSync(ck, null)
+								}
+								nextOpts.cookieJar = this.ckjar
+							}
+						} catch (e) {
+							this.logErr(e)
+						}
+						// this.ckjar.setCookieSync(response.headers['set-cookie'].map(Cookie.parse).toString())
+					})
+					.then(
+						(response) => {
+							const {
+								statusCode: status,
+								statusCode,
+								headers,
+								rawBody
+							} = response
+							const body = iconv.decode(rawBody, this.encoding)
+							callback(
+								null,
+								{ status, statusCode, headers, rawBody, body },
+								body
+							)
+						},
+						(err) => {
+							const { message: error, response: response } = err
+							callback(
+								error,
+								response,
+								response && iconv.decode(response.rawBody, this.encoding)
+							)
+						}
+					)
 				break
 		}
 	}
@@ -342,44 +390,40 @@ export default class ENV {
 			request.headers['content-type'] = 'application/x-www-form-urlencoded'
 		}
 		// 为避免指定错误 `content-length` 这里删除该属性，由工具端 (HttpClient) 负责重新计算并赋值
-		if (request.headers) {
-			delete request.headers['Content-Length']
-			delete request.headers['content-length']
-		}
-		switch (this.getEnv()) {
+		delete request?.headers?.['Content-Length']
+		delete request?.headers?.['content-length']
+		switch (this.platform()) {
 			case 'Surge':
 			case 'Loon':
 			case 'Stash':
 			case 'Shadowrocket':
 			default:
 				if (this.isSurge() && this.isNeedRewrite) {
-					request.headers = request.headers || {}
-					Object.assign(request.headers, { 'X-Surge-Skip-Scripting': false })
+					this.lodash_set(request, 'headers.X-Surge-Skip-Scripting', false)
 				}
-				$httpClient[method](request, (err, resp, body) => {
-					if (!err && resp) {
-						resp.body = body
-						resp.statusCode = resp.status ? resp.status : resp.statusCode
-						resp.status = resp.statusCode
+				$httpClient[method](request, (error, response, body) => {
+					if (!error && response) {
+						response.body = body
+						response.statusCode = response.status ? response.status : response.statusCode
+						response.status = response.statusCode
 					}
-					callback(err, resp, body)
+					callback(error, response, body)
 				})
 				break
 			case 'Quantumult X':
 				request.method = method
 				if (this.isNeedRewrite) {
-					request.opts = request.opts || {}
-					Object.assign(request.opts, { hints: false })
+					this.lodash_set(request, 'opts.hints', false)
 				}
 				$task.fetch(request).then(
-					(resp) => {
+					(response) => {
 						const {
 							statusCode: status,
 							statusCode,
 							headers,
 							body,
 							bodyBytes
-						} = resp
+						} = response
 						callback(
 							null,
 							{ status, statusCode, headers, body, bodyBytes },
@@ -387,7 +431,31 @@ export default class ENV {
 							bodyBytes
 						)
 					},
-					(err) => callback((err && err.error) || 'UndefinedError')
+					(error) => callback((error && error.error) || 'UndefinedError')
+				)
+				break
+			case 'Node.js':
+				let iconv = require('iconv-lite')
+				this.initGotEnv(request)
+				const { url, ..._request } = request
+				this.got[method](url, _request).then(
+					(response) => {
+						const { statusCode: status, statusCode, headers, rawBody } = response
+						const body = iconv.decode(rawBody, this.encoding)
+						callback(
+							null,
+							{ status, statusCode, headers, rawBody, body },
+							body
+						)
+					},
+					(err) => {
+						const { message: error, response: response } = err
+						callback(
+							error,
+							response,
+							response && iconv.decode(response.rawBody, this.encoding)
+						)
+					}
 				)
 				break
 		}
@@ -398,11 +466,11 @@ export default class ENV {
 	 *    :$.time('yyyyMMddHHmmssS')
 	 *    y:年 M:月 d:日 q:季 H:时 m:分 s:秒 S:毫秒
 	 *    其中y可选0-4位占位符、S可选0-1位占位符，其余可选0-2位占位符
-	 * @param {string} fmt 格式化参数
-	 * @param {number} 可选: 根据指定时间戳返回格式化日期
+	 * @param {string} format 格式化参数
+	 * @param {number} ts 可选: 根据指定时间戳返回格式化日期
 	 *
 	 */
-	time(fmt, ts = null) {
+	time(format, ts = null) {
 		const date = ts ? new Date(ts) : new Date()
 		let o = {
 			'M+': date.getMonth() + 1,
@@ -413,42 +481,20 @@ export default class ENV {
 			'q+': Math.floor((date.getMonth() + 3) / 3),
 			'S': date.getMilliseconds()
 		}
-		if (/(y+)/.test(fmt))
-			fmt = fmt.replace(
+		if (/(y+)/.test(format))
+			format = format.replace(
 				RegExp.$1,
 				(date.getFullYear() + '').substr(4 - RegExp.$1.length)
 			)
 		for (let k in o)
-			if (new RegExp('(' + k + ')').test(fmt))
-				fmt = fmt.replace(
+			if (new RegExp('(' + k + ')').test(format))
+				format = format.replace(
 					RegExp.$1,
 					RegExp.$1.length == 1
 						? o[k]
 						: ('00' + o[k]).substr(('' + o[k]).length)
 				)
-		return fmt
-	}
-
-	/**
-	 *
-	 * @param {Object} options
-	 * @returns {String} 将 Object 对象 转换成 queryStr: key=val&name=senku
-	 */
-	queryStr(options) {
-		let queryString = ''
-
-		for (const key in options) {
-			let value = options[key]
-			if (value != null && value !== '') {
-				if (typeof value === 'object') {
-					value = JSON.stringify(value)
-				}
-				queryString += `${key}=${value}&`
-			}
-		}
-		queryString = queryString.substring(0, queryString.length - 1)
-
-		return queryString
+		return format
 	}
 
 	/**
@@ -473,7 +519,7 @@ export default class ENV {
 				case undefined:
 					return rawopts
 				case 'string':
-					switch (this.getEnv()) {
+					switch (this.platform()) {
 						case 'Surge':
 						case 'Stash':
 						default:
@@ -483,9 +529,11 @@ export default class ENV {
 							return rawopts
 						case 'Quantumult X':
 							return { 'open-url': rawopts }
+						case 'Node.js':
+							return undefined
 					}
 				case 'object':
-					switch (this.getEnv()) {
+					switch (this.platform()) {
 						case 'Surge':
 						case 'Stash':
 						case 'Shadowrocket':
@@ -512,13 +560,15 @@ export default class ENV {
 								'update-pasteboard': updatePasteboard
 							}
 						}
+						case 'Node.js':
+							return undefined
 					}
 				default:
 					return undefined
 			}
 		}
 		if (!this.isMute) {
-			switch (this.getEnv()) {
+			switch (this.platform()) {
 				case 'Surge':
 				case 'Loon':
 				case 'Stash':
@@ -528,6 +578,8 @@ export default class ENV {
 					break
 				case 'Quantumult X':
 					$notify(title, subt, desc, toEnvOpts(opts))
+					break
+				case 'Node.js':
 					break
 			}
 		}
@@ -548,15 +600,18 @@ export default class ENV {
 		console.log(logs.join(this.logSeparator))
 	}
 
-	logErr(err, msg) {
-		switch (this.getEnv()) {
+	logErr(error) {
+		switch (this.platform()) {
 			case 'Surge':
 			case 'Loon':
 			case 'Stash':
 			case 'Shadowrocket':
 			case 'Quantumult X':
 			default:
-				this.log('', `❗️${this.name}, 错误!`, err)
+				this.log('', `❗️ ${this.name}, 错误!`, error)
+				break
+			case 'Node.js':
+				this.log('', `❗️${this.name}, 错误!`, error.stack)
 				break
 		}
 	}
@@ -568,9 +623,9 @@ export default class ENV {
 	done(val = {}) {
 		const endTime = new Date().getTime()
 		const costTime = (endTime - this.startTime) / 1000
-		this.log('', `🔔${this.name}, 结束! 🕛 ${costTime} 秒`)
+		this.log('', `🚩 ${this.name}, 结束! 🕛 ${costTime} 秒`)
 		this.log()
-		switch (this.getEnv()) {
+		switch (this.platform()) {
 			case 'Surge':
 			case 'Loon':
 			case 'Stash':
@@ -579,8 +634,68 @@ export default class ENV {
 			default:
 				$done(val)
 				break
+			case 'Node.js':
+				process.exit(1)
+				break
 		}
 	}
+
+	/**
+	 * Get Environment Variables
+	 * @link https://github.com/VirgilClyne/GetSomeFries/blob/main/function/getENV/getENV.js
+	 * @author VirgilClyne
+	 * @param {String} key - Persistent Store Key
+	 * @param {Array} names - Platform Names
+	 * @param {Object} database - Default Database
+	 * @return {Object} { Settings, Caches, Configs }
+	 */
+	getENV(key, names, database) {
+		//this.log(`☑️ ${this.name}, Get Environment Variables`, "");
+		/***************** BoxJs *****************/
+		// 包装为局部变量，用完释放内存
+		// BoxJs的清空操作返回假值空字符串, 逻辑或操作符会在左侧操作数为假值时返回右侧操作数。
+		let BoxJs = this.getjson(key, database);
+		//this.log(`🚧 ${this.name}, Get Environment Variables`, `BoxJs类型: ${typeof BoxJs}`, `BoxJs内容: ${JSON.stringify(BoxJs)}`, "");
+		/***************** Argument *****************/
+		let Argument = {};
+		if (typeof $argument !== "undefined") {
+			if (Boolean($argument)) {
+				//this.log(`🎉 ${this.name}, $Argument`);
+				let arg = Object.fromEntries($argument.split("&").map((item) => item.split("=").map(i => i.replace(/\"/g, ''))));
+				//this.log(JSON.stringify(arg));
+				for (let item in arg) this.setPath(Argument, item, arg[item]);
+				//this.log(JSON.stringify(Argument));
+			};
+			//this.log(`✅ ${this.name}, Get Environment Variables`, `Argument类型: ${typeof Argument}`, `Argument内容: ${JSON.stringify(Argument)}`, "");
+		};
+		/***************** Store *****************/
+		const Store = { Settings: database?.Default?.Settings || {}, Configs: database?.Default?.Configs || {}, Caches: {} };
+		if (!Array.isArray(names)) names = [names];
+		//this.log(`🚧 ${this.name}, Get Environment Variables`, `names类型: ${typeof names}`, `names内容: ${JSON.stringify(names)}`, "");
+		for (let name of names) {
+			Store.Settings = { ...Store.Settings, ...database?.[name]?.Settings, ...Argument, ...BoxJs?.[name]?.Settings };
+			Store.Configs = { ...Store.Configs, ...database?.[name]?.Configs };
+			if (BoxJs?.[name]?.Caches && typeof BoxJs?.[name]?.Caches === "string") BoxJs[name].Caches = JSON.parse(BoxJs?.[name]?.Caches);
+			Store.Caches = { ...Store.Caches, ...BoxJs?.[name]?.Caches };
+		};
+		//this.log(`🚧 ${this.name}, Get Environment Variables`, `Store.Settings类型: ${typeof Store.Settings}`, `Store.Settings: ${JSON.stringify(Store.Settings)}`, "");
+		this.traverseObject(Store.Settings, (key, value) => {
+			//this.log(`🚧 ${this.name}, traverseObject`, `${key}: ${typeof value}`, `${key}: ${JSON.stringify(value)}`, "");
+			if (value === "true" || value === "false") value = JSON.parse(value); // 字符串转Boolean
+			else if (typeof value === "string") {
+				if (value.includes(",")) value = value.split(",").map(item => this.string2number(item)); // 字符串转数组转数字
+				else value = this.string2number(value); // 字符串转数字
+			};
+			return value;
+		});
+		//this.log(`✅ ${this.name}, Get Environment Variables`, `Store: ${typeof Store.Caches}`, `Store内容: ${JSON.stringify(Store)}`, "");
+		return Store;
+	};
+
+	/***************** function *****************/
+	setPath(object, path, value) { path.split(".").reduce((o, p, i) => o[p] = path.split(".").length === ++i ? value : o[p] || {}, object) }
+	traverseObject(o, c) { for (var t in o) { var n = o[t]; o[t] = "object" == typeof n && null !== n ? this.traverseObject(n, c) : c(t, n) } return o }
+	string2number(string) { if (string && !isNaN(string)) string = parseInt(string, 10); return string }
 }
 
 export class Http {
@@ -595,9 +710,9 @@ export class Http {
 			sender = this.post
 		}
 		return new Promise((resolve, reject) => {
-			sender.call(this, opts, (err, resp, body) => {
-				if (err) reject(err)
-				else resolve(resp)
+			sender.call(this, opts, (error, response, body) => {
+				if (error) reject(error)
+				else resolve(response)
 			})
 		})
 	}
