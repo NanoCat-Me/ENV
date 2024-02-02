@@ -1,7 +1,7 @@
 export default class ENV {
 	constructor(name, opts) {
 		this.name = name
-		this.version = '1.2.0'
+		this.version = '1.3.0'
 		this.http = new Http(this)
 		this.data = null
 		this.dataFile = 'box.dat'
@@ -168,7 +168,7 @@ export default class ENV {
 		// translate array case to dot case, then split with .
 		// a[0].b -> a.0.b -> ['a', '0', 'b']
 		if (!Array.isArray(path)) path = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean)
-		
+
 		const result = path.reduce((previousValue, currentValue) => {
 			return Object(previousValue)[currentValue]; // null undefined get attribute will throwError, Object() can return a object 
 		}, object)
@@ -324,7 +324,7 @@ export default class ENV {
 					},
 					(error) => callback((error && error.error) || 'UndefinedError')
 				)
-				break
+				break;
 			case 'Node.js':
 				let iconv = require('iconv-lite')
 				this.initGotEnv(request)
@@ -459,6 +459,86 @@ export default class ENV {
 				break
 		}
 	}
+
+	async fetch(request = {} || "", option = {}) {
+		switch (request.constructor) {
+			case Object:
+				break;
+			case String:
+				request = {
+					"url": request,
+					...option
+				};
+				break;
+		};
+		if (!request.method) {
+			request.method = "GET";
+			if (request.body ?? request.bodyBytes) request.method = "POST";
+		};
+		delete request.headers?.['Content-Length']
+		delete request.headers?.['content-length']
+		const method = request.method.toLocaleLowerCase();
+		switch (this.platform()) {
+			case 'Surge':
+			case 'Loon':
+			case 'Stash':
+			case 'Shadowrocket':
+			default:
+				return await new Promise((resolve, reject) => {
+					// if (this.isSurge() && this.isNeedRewrite) this.lodash_set(request, 'headers.X-Surge-Skip-Scripting', false)
+					$httpClient[method](request, (error, response, body) => {
+						if (error) reject(error);
+						else {
+							response.ok = /^2\d\d$/.test(response.status);
+							response.statusCode = response.status;
+							if (body) {
+								response.body = body;
+								if (request["binary-mode"] == true) response.bodyBytes = body;
+							};
+							resolve(response);
+						}
+					});
+				});
+			case 'Quantumult X':
+				return await $task.fetch(request).then(
+					response => {
+						response.ok = /^2\d\d$/.test(response.statusCode);
+						response.status = response.statusCode;
+						return response;
+					},
+					reason => Promise.reject(reason.error));
+			case 'Node.js':
+				let iconv = require('iconv-lite')
+				this.initGotEnv(request)
+                const { url, ...option } = request
+				return await this.got[method](url, option)
+                    .on('redirect', (response, nextOpts) => {
+                        try {
+                            if (response.headers['set-cookie']) {
+                                const ck = response.headers['set-cookie']
+                                    .map(this.cktough.Cookie.parse)
+                                    .toString()
+                                if (ck) {
+                                    this.ckjar.setCookieSync(ck, null)
+                                }
+                                nextOpts.cookieJar = this.ckjar
+                            }
+                        } catch (e) {
+                            this.logErr(e)
+                        }
+                        // this.ckjar.setCookieSync(response.headers['set-cookie'].map(Cookie.parse).toString())
+                    })
+                    .then(
+                        response => {
+                            response.statusCode = response.status;
+                            response.body = iconv.decode(response.rawBody, this.encoding);
+                            response.bodyBytes = response.rawBody;
+                            return response;
+                        },
+                        error => Promise.reject(error.message));
+        };
+    };
+
 	/**
 	 *
 	 * 示例:$.time('yyyy-MM-dd qq HH:mm:ss.S')
