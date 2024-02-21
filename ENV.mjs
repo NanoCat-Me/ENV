@@ -3,7 +3,7 @@ import Lodash from './Lodash.mjs'
 export default class ENV {
 	constructor(name, opts) {
 		this.name = name
-		this.version = '1.4.0'
+		this.version = '1.4.1'
 		this.data = null
 		this.dataFile = 'box.dat'
 		this.logs = []
@@ -26,6 +26,7 @@ export default class ENV {
 		if ('undefined' !== typeof $task) return 'Quantumult X'
 		if ('undefined' !== typeof $loon) return 'Loon'
 		if ('undefined' !== typeof $rocket) return 'Shadowrocket'
+		if ('undefined' !== typeof Egern) return 'Egern'
 	}
 
 	isNode() {
@@ -50,6 +51,10 @@ export default class ENV {
 
 	isStash() {
 		return 'Stash' === this.platform()
+	}
+
+	isEgern() {
+		return 'Egern' === this.platform()
 	}
 
 	toObj(str, defaultValue = null) {
@@ -213,6 +218,7 @@ export default class ENV {
 			case 'Surge':
 			case 'Loon':
 			case 'Stash':
+			case 'Egern':
 			case 'Shadowrocket':
 				return $persistentStore.read(key)
 			case 'Quantumult X':
@@ -230,6 +236,7 @@ export default class ENV {
 			case 'Surge':
 			case 'Loon':
 			case 'Stash':
+			case 'Egern':
 			case 'Shadowrocket':
 				return $persistentStore.write(val, key)
 			case 'Quantumult X':
@@ -276,6 +283,7 @@ export default class ENV {
 			case 'Loon':
 			case 'Surge':
 			case 'Stash':
+			case 'Egern':
 			case 'Shadowrocket':
 			default:
 				// 移除不可写字段
@@ -431,6 +439,7 @@ export default class ENV {
 					switch (this.platform()) {
 						case 'Surge':
 						case 'Stash':
+						case 'Egern':
 						default:
 							return { url: rawopts }
 						case 'Loon':
@@ -445,6 +454,7 @@ export default class ENV {
 					switch (this.platform()) {
 						case 'Surge':
 						case 'Stash':
+						case 'Egern':
 						case 'Shadowrocket':
 						default: {
 							let openUrl =
@@ -481,6 +491,7 @@ export default class ENV {
 				case 'Surge':
 				case 'Loon':
 				case 'Stash':
+				case 'Egern':
 				case 'Shadowrocket':
 				default:
 					$notification.post(title, subt, desc, toEnvOpts(opts))
@@ -514,6 +525,7 @@ export default class ENV {
 			case 'Surge':
 			case 'Loon':
 			case 'Stash':
+			case 'Egern':
 			case 'Shadowrocket':
 			case 'Quantumult X':
 			default:
@@ -538,6 +550,7 @@ export default class ENV {
 			case 'Surge':
 			case 'Loon':
 			case 'Stash':
+			case 'Egern':
 			case 'Shadowrocket':
 			case 'Quantumult X':
 			default:
