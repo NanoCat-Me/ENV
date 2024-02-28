@@ -3,7 +3,7 @@ import Lodash from './Lodash.mjs'
 export default class ENV {
 	constructor(name, opts) {
 		this.name = name
-		this.version = '1.5.6'
+		this.version = '1.5.7'
 		this.data = null
 		this.dataFile = 'box.dat'
 		this.logs = []
@@ -312,11 +312,11 @@ export default class ENV {
 				});
 			case 'Quantumult X':
 				// 移除不可写字段
-				delete object.charset;
-				delete object.path;
-				delete object.scheme;
-				delete object.sessionIndex;
-				delete object.statusCode;
+				delete request.charset;
+				delete request.path;
+				delete request.scheme;
+				delete request.sessionIndex;
+				delete request.statusCode;
 				// 添加策略组
 				if (request.policy) this.lodash.set(request, "opts.policy", request.policy);
 				// 判断请求数据类型
