@@ -3,7 +3,7 @@ import Lodash from './Lodash.mjs'
 export default class ENV {
 	constructor(name, opts) {
 		this.name = name
-		this.version = '1.4.1'
+		this.version = '1.5.6'
 		this.data = null
 		this.dataFile = 'box.dat'
 		this.logs = []
@@ -312,9 +312,11 @@ export default class ENV {
 				});
 			case 'Quantumult X':
 				// 移除不可写字段
-				delete request.scheme;
-				delete request.sessionIndex;
-				delete request.charset;
+				delete object.charset;
+				delete object.path;
+				delete object.scheme;
+				delete object.sessionIndex;
+				delete object.statusCode;
 				// 添加策略组
 				if (request.policy) this.lodash.set(request, "opts.policy", request.policy);
 				// 判断请求数据类型
@@ -541,24 +543,42 @@ export default class ENV {
 		return new Promise((resolve) => setTimeout(resolve, time))
 	}
 
-	done(val = {}) {
-		const endTime = new Date().getTime()
-		const costTime = (endTime - this.startTime) / 1000
-		this.log('', `🚩 ${this.name}, 结束! 🕛 ${costTime} 秒`)
-		this.log()
+	done(object = {}) {
+		const endTime = new Date().getTime();
+		const costTime = (endTime - this.startTime) / 1000;
+		this.log("", `🚩 ${this.name}, 结束! 🕛 ${costTime} 秒`, "");
+		if (object.headers?.["Content-Encoding"]) object.headers["Content-Encoding"] = "identity";
+		if (object.headers?.["content-encoding"]) object.headers["content-encoding"] = "identity";
+		delete object.headers?.["Content-Length"];
+		delete object.headers?.["content-length"];
 		switch (this.platform()) {
 			case 'Surge':
 			case 'Loon':
 			case 'Stash':
 			case 'Egern':
 			case 'Shadowrocket':
-			case 'Quantumult X':
 			default:
-				$done(val)
-				break
+				$done(object);
+				break;
+			case 'Quantumult X':
+				// 移除不可写字段
+				delete object.charset;
+				delete object.path;
+				delete object.scheme;
+				delete object.sessionIndex;
+				delete object.statusCode;
+				if (object.body instanceof ArrayBuffer) {
+					object.bodyBytes = object.body;
+					delete object.body;
+				} else if (ArrayBuffer.isView(object.body)) {
+					object.bodyBytes = object.body.buffer.slice(object.body.byteOffset, object.body.byteLength + object.body.byteOffset);
+					delete object.body;
+				} else if (object.body) delete object.bodyBytes;
+				$done(object);
+				break;
 			case 'Node.js':
-				process.exit(1)
-				break
+				process.exit(1);
+				break;
 		}
 	}
 
