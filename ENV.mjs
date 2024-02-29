@@ -3,7 +3,7 @@ import Lodash from './Lodash.mjs'
 export default class ENV {
 	constructor(name, opts) {
 		this.name = name
-		this.version = '1.5.8'
+		this.version = '1.5.11'
 		this.data = null
 		this.dataFile = 'box.dat'
 		this.logs = []
@@ -547,10 +547,6 @@ export default class ENV {
 		const endTime = new Date().getTime();
 		const costTime = (endTime - this.startTime) / 1000;
 		this.log("", `🚩 ${this.name}, 结束! 🕛 ${costTime} 秒`, "");
-		if (object.headers?.["Content-Encoding"]) object.headers["Content-Encoding"] = "identity";
-		if (object.headers?.["content-encoding"]) object.headers["content-encoding"] = "identity";
-		delete object.headers?.["Content-Length"];
-		delete object.headers?.["content-length"];
 		switch (this.platform()) {
 			case 'Surge':
 			case 'Loon':
@@ -564,6 +560,7 @@ export default class ENV {
 				// 移除不可写字段
 				delete object.charset;
 				delete object.host;
+				delete object.method; // 1.4.x 不可写
 				delete object.path;
 				delete object.scheme;
 				delete object.sessionIndex;
