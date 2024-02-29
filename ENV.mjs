@@ -3,7 +3,7 @@ import Lodash from './Lodash.mjs'
 export default class ENV {
 	constructor(name, opts) {
 		this.name = name
-		this.version = '1.5.7'
+		this.version = '1.5.8'
 		this.data = null
 		this.dataFile = 'box.dat'
 		this.logs = []
@@ -563,6 +563,7 @@ export default class ENV {
 			case 'Quantumult X':
 				// 移除不可写字段
 				delete object.charset;
+				delete object.host;
 				delete object.path;
 				delete object.scheme;
 				delete object.sessionIndex;
