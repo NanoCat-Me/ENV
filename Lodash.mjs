@@ -1,7 +1,7 @@
 export default class Lodash {
 	constructor() {
 		this.name = "Lodash"
-		this.version = '1.0.0'
+		this.version = '1.2.0'
 		console.log(`\n${this.name} v${this.version}\n`)
 	}
 
@@ -30,8 +30,42 @@ export default class Lodash {
 		return object
 	}
 
+	unset(object = {}, path = "") {
+		if (!Array.isArray(path)) path = this.toPath(path)
+		let result = path.reduce((previousValue, currentValue, currentIndex) => {
+			if (currentIndex === path.length - 1) {
+				delete previousValue[currentValue]
+				return true
+			}
+			return Object(previousValue)[currentValue]
+		}, object)
+		return result
+	}
+
 	toPath(value) {
 		return value.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+	}
+
+	escape(string) {
+		const map = {
+			'&': '&amp;',
+			'<': '&lt;',
+			'>': '&gt;',
+			'"': '&quot;',
+			"'": '&#39;',
+		}
+		return string.replace(/[&<>"']/g, m => map[m])
+	};
+
+	unescape(string) {
+		const map = {
+			'&amp;': '&',
+			'&lt;': '<',
+			'&gt;': '>',
+			'&quot;': '"',
+			'&#39;': "'",
+		}
+		return string.replace(/&amp;|&lt;|&gt;|&quot;|&#39;/g, m => map[m])
 	}
 
 }
