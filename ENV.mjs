@@ -3,7 +3,7 @@ import Lodash from './Lodash.mjs'
 export default class ENV {
 	constructor(name, opts) {
 		this.name = name
-		this.version = '1.5.11'
+		this.version = '1.5.12'
 		this.data = null
 		this.dataFile = 'box.dat'
 		this.logs = []
@@ -276,8 +276,8 @@ export default class ENV {
 			request.method = "GET";
 			if (request.body ?? request.bodyBytes) request.method = "POST";
 		};
-		delete request.headers?.['Content-Length']
-		delete request.headers?.['content-length']
+		delete request.headers?.['Content-Length'];
+		delete request.headers?.['content-length'];
 		const method = request.method.toLocaleLowerCase();
 		switch (this.platform()) {
 			case 'Loon':
@@ -549,19 +549,33 @@ export default class ENV {
 		this.log("", `🚩 ${this.name}, 结束! 🕛 ${costTime} 秒`, "");
 		switch (this.platform()) {
 			case 'Surge':
+				if (object.policy) this.lodash.set(object, "headers.X-Surge-Policy", object.policy);
+				$done(object);
+				break;
 			case 'Loon':
+				if (object.policy) object.node = object.policy;
+				$done(object);
+				break;
 			case 'Stash':
+				if (object.policy) this.lodash.set(object, "headers.X-Stash-Selected-Proxy", encodeURI(object.policy));
+				$done(object);
+				break;
 			case 'Egern':
+				$done(object);
+				break;
 			case 'Shadowrocket':
 			default:
 				$done(object);
 				break;
 			case 'Quantumult X':
+				if (object.policy) this.lodash.set(object, "opts.policy", object.policy);
 				// 移除不可写字段
 				delete object.charset;
 				delete object.host;
 				delete object.method; // 1.4.x 不可写
-				delete object.path;
+				delete object.opt; // $task.fetch() 参数, 不可写
+				delete object.path; // 可写, 但会与 url 冲突
+				delete object.policy;
 				delete object.scheme;
 				delete object.sessionIndex;
 				delete object.statusCode;
