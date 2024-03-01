@@ -1,17 +1,17 @@
 import Lodash from './Lodash.mjs'
-const _ = new Lodash();
 
 /* https://developer.mozilla.org/zh-CN/docs/Web/API/Storage/setItem */
 export default class Storage {
 	#nameRegex = /^@(?<keyName>[^.]+)(?:\.(?<path>.*))?$/;
+	#lodash = new Lodash()
+	#name = "Storage"
+	#version = '1.0.0'
 
-	constructor(name, opts) {
-		this.name = name
-		this.version = '1.0.0'
+	constructor(opts) {
 		this.data = null
 		this.dataFile = 'box.dat'
 		Object.assign(this, opts)
-		console.log(`\n${this.name} v${this.version}\n`)
+		console.log(`\n🟧 ${this.#name} v${this.#version}\n`)
 	}
 
     getItem(keyName = new String) {
@@ -27,7 +27,7 @@ export default class Storage {
 				} catch (e) {
 					value = {};
 				};
-				keyValue = _.get(value, path);
+				keyValue = this.#lodash.get(value, path);
 				break;
 			default:
 				switch (this.platform()) {
@@ -75,7 +75,7 @@ export default class Storage {
 				} catch (e) {
 					value = {};
 				};
-				_.set(value, path, keyValue);
+				this.#lodash.set(value, path, keyValue);
 				result = this.setItem(keyName, value);
 				break;
 			default:
@@ -113,7 +113,7 @@ export default class Storage {
 				} catch (e) {
 					value = {};
 				};
-				keyValue = _.unset(value, path);
+				keyValue = this.#lodash.unset(value, path);
 				result = this.setItem(keyName, value);
 				break;
 			default:

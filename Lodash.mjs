@@ -1,8 +1,10 @@
+/* https://www.lodashjs.com */
 export default class Lodash {
+	#name = "Lodash"
+	#version = '1.2.0'
+
 	constructor() {
-		this.name = "Lodash"
-		this.version = '1.2.0'
-		console.log(`\n${this.name} v${this.version}\n`)
+		console.log(`\n🟧 ${this.#name} v${this.#version}\n`)
 	}
 
 	get(object = {}, path = "", defaultValue = undefined) {
