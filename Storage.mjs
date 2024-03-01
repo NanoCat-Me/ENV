@@ -1,85 +1,169 @@
+import Lodash from './Lodash.mjs'
+const _ = new Lodash();
+
 /* https://developer.mozilla.org/zh-CN/docs/Web/API/Storage/setItem */
-export default class Storage extends ENV {
-    constructor() {
-        super();
-    }
+export default class Storage {
+	#nameRegex = /^@(?<keyName>[^.]+)(?:\.(?<path>.*))?$/;
+
+	constructor(name, opts) {
+		this.name = name
+		this.version = '1.0.0'
+		this.data = null
+		this.dataFile = 'box.dat'
+		Object.assign(this, opts)
+		console.log(`\n${this.name} v${this.version}\n`)
+	}
 
     getItem(keyName = new String) {
         let keyValue = null;
         // 如果以 @
-        if (keyName.startsWith('@')) {
-            const [, objkey, paths] = /^@(.*?)\.(.*?)$/.exec(keyName)
-            const objval = objkey ? this.getItem(objkey) : ""
-            if (objval) {
-                try {
-                    const objedval = JSON.parse(objval)
-                    keyValue = objedval ? this.lodash.get(objedval, paths, "") : keyValue;
-                } catch (e) {
-                    keyValue = ""
-                }
-            };
-        };
-        switch (this.platform()) {
-			case 'Surge':
-			case 'Loon':
-			case 'Stash':
-			case 'Egern':
-			case 'Shadowrocket':
-				keyValue = $persistentStore.read(keyName);
-			case 'Quantumult X':
-				keyValue = $prefs.valueForKey(keyName);
-			case 'Node.js':
-				this.data = this.loaddata();
-				keyValue = this.data[keyName];
+		switch (keyName.startsWith('@')) {
+			case true:
+				const { key, path } = keyName.match(this.#nameRegex)?.groups;
+				keyName = key;
+				let value = this.getItem(keyName);
+				try {
+					value = JSON.parse(value ?? "{}");
+				} catch (e) {
+					value = {};
+				};
+				keyValue = _.get(value, path);
+				break;
 			default:
-				keyValue = this.data?.[keyName] || null;
+				switch (this.platform()) {
+					case 'Surge':
+					case 'Loon':
+					case 'Stash':
+					case 'Egern':
+					case 'Shadowrocket':
+						keyValue = $persistentStore.read(keyName);
+					case 'Quantumult X':
+						keyValue = $prefs.valueForKey(keyName);
+					case 'Node.js':
+						this.data = this.#loaddata();
+						keyValue = this.data[keyName];
+					default:
+						keyValue = this.data?.[keyName] || null;
+				};
+				try {
+					keyValue = JSON.parse(keyValue);
+				} catch (e) {
+					// do nothing
+				};
+				break;
 		};
-        return keyValue;
+		return keyValue;
     };
 
-    setItem(keyName = new String, keyValue = new String) {
-        if (keyName.startsWith('@')) {
-            const [, objkey, paths] = /^@(.*?)\.(.*?)$/.exec(keyName);
-            const objdat = this.getItem(objkey);
-            const objval = objkey ? objdat === 'null' ? null : objdat || '{}' : '{}';
-            try {
-                const objedval = JSON.parse(objval)
-                this.lodash.set(objedval, paths, keyValue);
-                keyName = objkey;
-                keyValue = JSON.stringify(objedval);
-            } catch (e) {
-                const objedval = {}
-                this.lodash.set(objedval, paths, keyValue)
-                keyName = objkey;
-                keyValue = JSON.stringify(objedval);
-            }
-        }
-        switch (this.platform()) {
-			case 'Surge':
-			case 'Loon':
-			case 'Stash':
-			case 'Egern':
-			case 'Shadowrocket':
-				return $persistentStore.write(keyValue, keyName)
-			case 'Quantumult X':
-				return $prefs.setValueForKey(keyValue, keyName)
-			case 'Node.js':
-				this.data = this.loaddata()
-				this.data[keyName] = keyValue
-				this.writedata()
-				return true
+	setItem(keyName = new String, keyValue = new String) {
+		let result = false;
+		switch (typeof keyValue) {
+			case "object":
+				keyValue = JSON.stringify(keyValue);
+				break;
 			default:
-				return this.data?.[keyName] || null
-		}
-    };
+				keyValue = String(keyValue);
+				break;
+		};
+		switch (keyName.startsWith('@')) {
+			case true:
+				const { key, path } = keyName.match(this.#nameRegex)?.groups;
+				keyName = key;
+				let value = this.getItem(keyName);
+				try {
+					value = JSON.parse(value ?? "{}");
+				} catch (e) {
+					value = {};
+				};
+				_.set(value, path, keyValue);
+				result = this.setItem(keyName, value);
+				break;
+			default:
+				switch (this.platform()) {
+					case 'Surge':
+					case 'Loon':
+					case 'Stash':
+					case 'Egern':
+					case 'Shadowrocket':
+						result = $persistentStore.write(keyValue, keyName)
+					case 'Quantumult X':
+						result =$prefs.setValueForKey(keyValue, keyName)
+					case 'Node.js':
+						this.data = this.#loaddata()
+						this.data[keyName] = keyValue
+						this.#writedata()
+						result = true
+					default:
+						result = this.data?.[keyName] || null
+				};
+				break;
+		};
+		return result;
+	};
 
     removeItem(keyName){
+		let result = false;
+		switch (keyName.startsWith('@')) {
+			case true:
+				const { key, path } = keyName.match(this.#nameRegex)?.groups;
+				keyName = key;
+				let value = this.getItem(keyName);
+				try {
+					value = JSON.parse(value ?? "{}");
+				} catch (e) {
+					value = {};
+				};
+				keyValue = _.unset(value, path);
+				result = this.setItem(keyName, value);
+				break;
+			default:
+				switch (this.platform()) {
+					case 'Surge':
+					case 'Loon':
+					case 'Stash':
+					case 'Egern':
+					case 'Shadowrocket':
+						result = false;
+						break;
+					case 'Quantumult X':
+						result = $prefs.removeValueForKey(keyName);
+						break;
+					case 'Node.js':
+						result = false
+						break;
+					default:
+						result = false;
+						break;
+				};
+				break;
+		};
+		return result;
     }
 
     clear() {
+		let result = false;
+		switch (this.platform()) {
+			case 'Surge':
+			case 'Loon':
+			case 'Stash':
+			case 'Egern':
+			case 'Shadowrocket':
+				result = false;
+				break;
+			case 'Quantumult X':
+				result = $prefs.removeAllValues();
+				break;
+			case 'Node.js':
+				result = false
+				break;
+			default:
+				result = false;
+				break;
+		};
+		return result;
     }
 
-	loaddata() {
+	#loaddata() {
 		if (this.isNode()) {
 			this.fs = this.fs ? this.fs : require('fs')
 			this.path = this.path ? this.path : require('path')
@@ -104,7 +188,7 @@ export default class Storage extends ENV {
 		} else return {}
 	}
 
-	writedata() {
+	#writedata() {
 		if (this.isNode()) {
 			this.fs = this.fs ? this.fs : require('fs')
 			this.path = this.path ? this.path : require('path')
