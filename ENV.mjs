@@ -4,7 +4,7 @@ import Storage from './Storage.mjs'
 export default class ENV {
 	lodash = new Lodash()
 	#name = "ENV"
-	#version = '1.6.1'
+	#version = '1.6.2'
 
 	constructor(name, opts) {
 		this.data = null
@@ -60,41 +60,6 @@ export default class ENV {
 		return 'Egern' === this.platform()
 	}
 
-	toObj(str, defaultValue = null) {
-		try {
-			return JSON.parse(str)
-		} catch {
-			return defaultValue
-		}
-	}
-
-	toStr(obj, defaultValue = null) {
-		try {
-			return JSON.stringify(obj)
-		} catch {
-			return defaultValue
-		}
-	}
-
-	getjson(key, defaultValue) {
-		let json = defaultValue
-		const val = this.getdata(key)
-		if (val) {
-			try {
-				json = JSON.parse(this.getdata(key))
-			} catch { }
-		}
-		return json
-	}
-
-	setjson(val, key) {
-		try {
-			return this.setdata(JSON.stringify(val), key)
-		} catch {
-			return false
-		}
-	}
-
 	getScript(url) {
 		return new Promise((resolve) => {
 			this.get({ url }, (error, response, body) => resolve(body))
@@ -103,11 +68,9 @@ export default class ENV {
 
 	runScript(script, runOpts) {
 		return new Promise((resolve) => {
-			let httpapi = this.getdata('@chavy_boxjs_userCfgs.httpapi')
+			let httpapi = this.Storage.getItem('@chavy_boxjs_userCfgs.httpapi')
 			httpapi = httpapi ? httpapi.replace(/\n/g, '').trim() : httpapi
-			let httpapi_timeout = this.getdata(
-				'@chavy_boxjs_userCfgs.httpapi_timeout'
-			)
+			let httpapi_timeout = this.Storage.getItem('@chavy_boxjs_userCfgs.httpapi_timeout')
 			httpapi_timeout = httpapi_timeout ? httpapi_timeout * 1 : 20
 			httpapi_timeout =
 				runOpts && runOpts.timeout ? runOpts.timeout : httpapi_timeout
@@ -124,134 +87,6 @@ export default class ENV {
 			}
 			this.post(opts, (error, response, body) => resolve(body))
 		}).catch((e) => this.logErr(e))
-	}
-
-	loaddata() {
-		if (this.isNode()) {
-			this.fs = this.fs ? this.fs : require('fs')
-			this.path = this.path ? this.path : require('path')
-			const curDirDataFilePath = this.path.resolve(this.dataFile)
-			const rootDirDataFilePath = this.path.resolve(
-				process.cwd(),
-				this.dataFile
-			)
-			const isCurDirDataFile = this.fs.existsSync(curDirDataFilePath)
-			const isRootDirDataFile =
-				!isCurDirDataFile && this.fs.existsSync(rootDirDataFilePath)
-			if (isCurDirDataFile || isRootDirDataFile) {
-				const datPath = isCurDirDataFile
-					? curDirDataFilePath
-					: rootDirDataFilePath
-				try {
-					return JSON.parse(this.fs.readFileSync(datPath))
-				} catch (e) {
-					return {}
-				}
-			} else return {}
-		} else return {}
-	}
-
-	writedata() {
-		if (this.isNode()) {
-			this.fs = this.fs ? this.fs : require('fs')
-			this.path = this.path ? this.path : require('path')
-			const curDirDataFilePath = this.path.resolve(this.dataFile)
-			const rootDirDataFilePath = this.path.resolve(
-				process.cwd(),
-				this.dataFile
-			)
-			const isCurDirDataFile = this.fs.existsSync(curDirDataFilePath)
-			const isRootDirDataFile =
-				!isCurDirDataFile && this.fs.existsSync(rootDirDataFilePath)
-			const jsondata = JSON.stringify(this.data)
-			if (isCurDirDataFile) {
-				this.fs.writeFileSync(curDirDataFilePath, jsondata)
-			} else if (isRootDirDataFile) {
-				this.fs.writeFileSync(rootDirDataFilePath, jsondata)
-			} else {
-				this.fs.writeFileSync(curDirDataFilePath, jsondata)
-			}
-		}
-	}
-	getdata(key) {
-		let val = this.getval(key)
-		// 如果以 @
-		if (/^@/.test(key)) {
-			const [, objkey, paths] = /^@(.*?)\.(.*?)$/.exec(key)
-			const objval = objkey ? this.getval(objkey) : ''
-			if (objval) {
-				try {
-					const objedval = JSON.parse(objval)
-					val = objedval ? this.lodash.get(objedval, paths, '') : val
-				} catch (e) {
-					val = ''
-				}
-			}
-		}
-		return val
-	}
-
-	setdata(val, key) {
-		let issuc = false
-		if (/^@/.test(key)) {
-			const [, objkey, paths] = /^@(.*?)\.(.*?)$/.exec(key)
-			const objdat = this.getval(objkey)
-			const objval = objkey
-				? objdat === 'null'
-					? null
-					: objdat || '{}'
-				: '{}'
-			try {
-				const objedval = JSON.parse(objval)
-				this.lodash.set(objedval, paths, val)
-				issuc = this.setval(JSON.stringify(objedval), objkey)
-			} catch (e) {
-				const objedval = {}
-				this.lodash.set(objedval, paths, val)
-				issuc = this.setval(JSON.stringify(objedval), objkey)
-			}
-		} else {
-			issuc = this.setval(val, key)
-		}
-		return issuc
-	}
-
-	getval(key) {
-		switch (this.platform()) {
-			case 'Surge':
-			case 'Loon':
-			case 'Stash':
-			case 'Egern':
-			case 'Shadowrocket':
-				return $persistentStore.read(key)
-			case 'Quantumult X':
-				return $prefs.valueForKey(key)
-			case 'Node.js':
-				this.data = this.loaddata()
-				return this.data[key]
-			default:
-				return (this.data && this.data[key]) || null
-		}
-	}
-
-	setval(val, key) {
-		switch (this.platform()) {
-			case 'Surge':
-			case 'Loon':
-			case 'Stash':
-			case 'Egern':
-			case 'Shadowrocket':
-				return $persistentStore.write(val, key)
-			case 'Quantumult X':
-				return $prefs.setValueForKey(val, key)
-			case 'Node.js':
-				this.data = this.loaddata()
-				this.data[key] = val
-				this.writedata()
-				return true
-			default:
-				return (this.data && this.data[key]) || null
-		}
 	}
 
 	initGotEnv(opts) {
@@ -601,7 +436,7 @@ export default class ENV {
 		/***************** BoxJs *****************/
 		// 包装为局部变量，用完释放内存
 		// BoxJs的清空操作返回假值空字符串, 逻辑或操作符会在左侧操作数为假值时返回右侧操作数。
-		let BoxJs = this.getjson(key, database);
+		let BoxJs = this.Storage.getItem(key) ?? database;
 		//this.log(`🚧 ${this.name}, Get Environment Variables`, `BoxJs类型: ${typeof BoxJs}`, `BoxJs内容: ${JSON.stringify(BoxJs)}`, "");
 		/***************** Argument *****************/
 		let Argument = {};
