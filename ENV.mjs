@@ -1,10 +1,9 @@
-import Lodash from './Lodash.mjs'
+import _ from './Lodash.mjs'
 import Storage from './Storage.mjs'
 
 export default class ENV {
-	lodash = new Lodash()
 	#name = "ENV"
-	#version = '1.6.2'
+	#version = '1.6.3'
 
 	constructor(name, opts) {
 		this.data = null
@@ -16,8 +15,8 @@ export default class ENV {
 		this.startTime = new Date().getTime()
 		Object.assign(this, opts)
 		this.log(`\n🚩 开始!\n${name}\n`)
-		this.Storage = new Storage(name, opts)
 		console.log(`\n🟧 ${this.#name} v${this.#version}\n`)
+		this.Storage = new Storage(name, opts)
 	}
 
 	platform() {
@@ -129,7 +128,7 @@ export default class ENV {
 				// 添加策略组
 				if (request.policy) {
 					if (this.isLoon()) request.node = request.policy;
-					if (this.isStash()) this.lodash.set(request, "headers.X-Stash-Selected-Proxy", encodeURI(request.policy));
+					if (this.isStash()) _.set(request, "headers.X-Stash-Selected-Proxy", encodeURI(request.policy));
 				};
 				// 判断请求数据类型
 				if (ArrayBuffer.isView(request.body)) request["binary-mode"] = true;
@@ -150,7 +149,7 @@ export default class ENV {
 				});
 			case 'Quantumult X':
 				// 添加策略组
-				if (request.policy) this.lodash.set(request, "opts.policy", request.policy);
+				if (request.policy) _.set(request, "opts.policy", request.policy);
 				// 移除不可写字段
 				delete request.charset;
 				delete request.host;
@@ -377,7 +376,7 @@ export default class ENV {
 		this.log("", `🚩 ${this.name}, 结束! 🕛 ${costTime} 秒`, "");
 		switch (this.platform()) {
 			case 'Surge':
-				if (object.policy) this.lodash.set(object, "headers.X-Surge-Policy", object.policy);
+				if (object.policy) _.set(object, "headers.X-Surge-Policy", object.policy);
 				$done(object);
 				break;
 			case 'Loon':
@@ -385,7 +384,7 @@ export default class ENV {
 				$done(object);
 				break;
 			case 'Stash':
-				if (object.policy) this.lodash.set(object, "headers.X-Stash-Selected-Proxy", encodeURI(object.policy));
+				if (object.policy) _.set(object, "headers.X-Stash-Selected-Proxy", encodeURI(object.policy));
 				$done(object);
 				break;
 			case 'Egern':
@@ -396,7 +395,7 @@ export default class ENV {
 				$done(object);
 				break;
 			case 'Quantumult X':
-				if (object.policy) this.lodash.set(object, "opts.policy", object.policy);
+				if (object.policy) _.set(object, "opts.policy", object.policy);
 				// 移除不可写字段
 				delete object.charset;
 				delete object.host;
@@ -445,7 +444,7 @@ export default class ENV {
 				//this.log(`🎉 ${this.name}, $Argument`);
 				let arg = Object.fromEntries($argument.split("&").map((item) => item.split("=").map(i => i.replace(/\"/g, ''))));
 				//this.log(JSON.stringify(arg));
-				for (let item in arg) this.lodash.set(Argument, item, arg[item]);
+				for (let item in arg) _.set(Argument, item, arg[item]);
 				//this.log(JSON.stringify(Argument));
 			};
 			//this.log(`✅ ${this.name}, Get Environment Variables`, `Argument类型: ${typeof Argument}`, `Argument内容: ${JSON.stringify(Argument)}`, "");

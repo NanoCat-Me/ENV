@@ -1,13 +1,13 @@
 /* https://www.lodashjs.com */
 export default class Lodash {
 	#name = "Lodash"
-	#version = '1.2.0'
+	#version = '1.2.1'
 
 	constructor() {
 		console.log(`\n🟧 ${this.#name} v${this.#version}\n`)
 	}
 
-	get(object = {}, path = "", defaultValue = undefined) {
+	static get(object = {}, path = "", defaultValue = undefined) {
 		// translate array case to dot case, then split with .
 		// a[0].b -> a.0.b -> ['a', '0', 'b']
 		if (!Array.isArray(path)) path = this.toPath(path)
@@ -18,7 +18,7 @@ export default class Lodash {
 		return (result === undefined) ? defaultValue : result;
 	}
 
-	set(object = {}, path = "", value) {
+	static set(object = {}, path = "", value) {
 		if (!Array.isArray(path)) path = this.toPath(path)
 		path
 			.slice(0, -1)
@@ -32,7 +32,7 @@ export default class Lodash {
 		return object
 	}
 
-	unset(object = {}, path = "") {
+	static unset(object = {}, path = "") {
 		if (!Array.isArray(path)) path = this.toPath(path)
 		let result = path.reduce((previousValue, currentValue, currentIndex) => {
 			if (currentIndex === path.length - 1) {
@@ -44,11 +44,11 @@ export default class Lodash {
 		return result
 	}
 
-	toPath(value) {
+	static toPath(value) {
 		return value.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
 	}
 
-	escape(string) {
+	static escape(string) {
 		const map = {
 			'&': '&amp;',
 			'<': '&lt;',
@@ -59,7 +59,7 @@ export default class Lodash {
 		return string.replace(/[&<>"']/g, m => map[m])
 	};
 
-	unescape(string) {
+	static unescape(string) {
 		const map = {
 			'&amp;': '&',
 			'&lt;': '<',
