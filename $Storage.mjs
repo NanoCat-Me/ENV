@@ -3,11 +3,11 @@ import _ from './Lodash.mjs'
 /* https://developer.mozilla.org/zh-CN/docs/Web/API/Storage/setItem */
 export default class $Storage {
 	static name = "$Storage";
-	static version = "1.0.7";
+	static version = "1.0.9";
 	static about() { return console.log(`\n🟧 ${this.name} v${this.version}\n`) };
 	static data = null
 	static dataFile = 'box.dat'
-	static #nameRegex = /^@(?<keyName>[^.]+)(?:\.(?<path>.*))?$/;
+	static #nameRegex = /^@(?<key>[^.]+)(?:\.(?<path>.*))?$/;
 
 	static #platform() {
 		if ('undefined' !== typeof $environment && $environment['surge-version'])
@@ -27,14 +27,20 @@ export default class $Storage {
 		switch (keyName.startsWith('@')) {
 			case true:
 				const { key, path } = keyName.match(this.#nameRegex)?.groups;
+				//console.log(`1: ${key}, ${path}`);
 				keyName = key;
-				let value = this.getItem(keyName);
-				try {
-					value = JSON.parse(value ?? "{}");
-				} catch (e) {
-					value = {};
-				};
+				let value = this.getItem(keyName, {});
+				//console.log(`2: ${JSON.stringify(value)}`)
+				if (typeof value !== "object") value = {};
+				//console.log(`3: ${JSON.stringify(value)}`)
 				keyValue = _.get(value, path);
+				//console.log(`4: ${JSON.stringify(keyValue)}`)
+				try {
+					keyValue = JSON.parse(keyValue);
+				} catch (e) {
+					// do nothing
+				};
+				//console.log(`5: ${JSON.stringify(keyValue)}`)
 				break;
 			default:
 				switch (this.#platform()) {
@@ -68,6 +74,7 @@ export default class $Storage {
 
 	static setItem(keyName = new String, keyValue = new String) {
 		let result = false;
+		//console.log(`0: ${typeof keyValue}`);
 		switch (typeof keyValue) {
 			case "object":
 				keyValue = JSON.stringify(keyValue);
@@ -79,15 +86,16 @@ export default class $Storage {
 		switch (keyName.startsWith('@')) {
 			case true:
 				const { key, path } = keyName.match(this.#nameRegex)?.groups;
+				//console.log(`1: ${key}, ${path}`);
 				keyName = key;
-				let value = this.getItem(keyName);
-				try {
-					value = JSON.parse(value ?? "{}");
-				} catch (e) {
-					value = {};
-				};
+				let value = this.getItem(keyName, {});
+				//console.log(`2: ${JSON.stringify(value)}`)
+				if (typeof value !== "object") value = {};
+				//console.log(`3: ${JSON.stringify(value)}`)
 				_.set(value, path, keyValue);
+				//console.log(`4: ${JSON.stringify(value)}`)
 				result = this.setItem(keyName, value);
+				//console.log(`5: ${result}`)
 				break;
 			default:
 				switch (this.#platform()) {
@@ -123,11 +131,7 @@ export default class $Storage {
 				const { key, path } = keyName.match(this.#nameRegex)?.groups;
 				keyName = key;
 				let value = this.getItem(keyName);
-				try {
-					value = JSON.parse(value ?? "{}");
-				} catch (e) {
-					value = {};
-				};
+				if (typeof value !== "object") value = {};
 				keyValue = _.unset(value, path);
 				result = this.setItem(keyName, value);
 				break;
