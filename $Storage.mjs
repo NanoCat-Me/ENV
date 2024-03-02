@@ -1,19 +1,15 @@
 import _ from './Lodash.mjs'
 
 /* https://developer.mozilla.org/zh-CN/docs/Web/API/Storage/setItem */
-export default class Storage {
-	#nameRegex = /^@(?<keyName>[^.]+)(?:\.(?<path>.*))?$/;
-	#name = "Storage"
-	#version = '1.0.3'
+export default class $Storage {
+	static name = "$Storage";
+	static version = "1.0.7";
+	static about() { return console.log(`\n🟧 ${this.name} v${this.version}\n`) };
+	static data = null
+	static dataFile = 'box.dat'
+	static #nameRegex = /^@(?<keyName>[^.]+)(?:\.(?<path>.*))?$/;
 
-	constructor(opts) {
-		this.data = null
-		this.dataFile = 'box.dat'
-		Object.assign(this, opts)
-		console.log(`\n🟧 ${this.#name} v${this.#version}\n`)
-	}
-
-	#platform() {
+	static #platform() {
 		if ('undefined' !== typeof $environment && $environment['surge-version'])
 			return 'Surge'
 		if ('undefined' !== typeof $environment && $environment['stash-version'])
@@ -25,8 +21,8 @@ export default class Storage {
 		if ('undefined' !== typeof Egern) return 'Egern'
 	}
 
-    getItem(keyName = new String) {
-        let keyValue = null;
+    static getItem(keyName = new String, defaultValue = null) {
+        let keyValue = defaultValue;
         // 如果以 @
 		switch (keyName.startsWith('@')) {
 			case true:
@@ -53,8 +49,8 @@ export default class Storage {
 						keyValue = $prefs.valueForKey(keyName);
 						break;
 					case 'Node.js':
-						this.data = this.#loaddata();
-						keyValue = this.data[keyName];
+						this.data = this.#loaddata(this.dataFile);
+						keyValue = this.data?.[keyName];
 						break;
 					default:
 						keyValue = this.data?.[keyName] || null;
@@ -67,10 +63,10 @@ export default class Storage {
 				};
 				break;
 		};
-		return keyValue;
+		return keyValue ?? defaultValue;
     };
 
-	setItem(keyName = new String, keyValue = new String) {
+	static setItem(keyName = new String, keyValue = new String) {
 		let result = false;
 		switch (typeof keyValue) {
 			case "object":
@@ -106,9 +102,9 @@ export default class Storage {
 						result =$prefs.setValueForKey(keyValue, keyName);
 						break;
 					case 'Node.js':
-						this.data = this.#loaddata()
+						this.data = this.#loaddata(this.dataFile)
 						this.data[keyName] = keyValue
-						this.#writedata()
+						this.#writedata(this.dataFile)
 						result = true
 						break;
 					default:
@@ -120,7 +116,7 @@ export default class Storage {
 		return result;
 	};
 
-    removeItem(keyName){
+    static removeItem(keyName){
 		let result = false;
 		switch (keyName.startsWith('@')) {
 			case true:
@@ -159,7 +155,7 @@ export default class Storage {
 		return result;
     }
 
-    clear() {
+    static clear() {
 		let result = false;
 		switch (this.#platform()) {
 			case 'Surge':
@@ -182,14 +178,14 @@ export default class Storage {
 		return result;
     }
 
-	#loaddata() {
+	static #loaddata(dataFile) {
 		if (this.isNode()) {
 			this.fs = this.fs ? this.fs : require('fs')
 			this.path = this.path ? this.path : require('path')
-			const curDirDataFilePath = this.path.resolve(this.dataFile)
+			const curDirDataFilePath = this.path.resolve(dataFile)
 			const rootDirDataFilePath = this.path.resolve(
 				process.cwd(),
-				this.dataFile
+				dataFile
 			)
 			const isCurDirDataFile = this.fs.existsSync(curDirDataFilePath)
 			const isRootDirDataFile =
@@ -207,14 +203,14 @@ export default class Storage {
 		} else return {}
 	}
 
-	#writedata() {
+	static #writedata(dataFile = this.dataFile) {
 		if (this.isNode()) {
 			this.fs = this.fs ? this.fs : require('fs')
 			this.path = this.path ? this.path : require('path')
-			const curDirDataFilePath = this.path.resolve(this.dataFile)
+			const curDirDataFilePath = this.path.resolve(dataFile)
 			const rootDirDataFilePath = this.path.resolve(
 				process.cwd(),
-				this.dataFile
+				dataFile
 			)
 			const isCurDirDataFile = this.fs.existsSync(curDirDataFilePath)
 			const isRootDirDataFile =

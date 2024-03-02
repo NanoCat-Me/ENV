@@ -1,11 +1,8 @@
 /* https://www.lodashjs.com */
 export default class Lodash {
-	#name = "Lodash"
-	#version = '1.2.1'
-
-	constructor() {
-		console.log(`\n🟧 ${this.#name} v${this.#version}\n`)
-	}
+	static name = "Lodash";
+	static version = "1.2.2";
+	static about() { return console.log(`\n🟧 ${this.name} v${this.version}\n`) };
 
 	static get(object = {}, path = "", defaultValue = undefined) {
 		// translate array case to dot case, then split with .

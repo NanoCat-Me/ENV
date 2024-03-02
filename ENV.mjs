@@ -1,13 +1,14 @@
 import _ from './Lodash.mjs'
-import Storage from './Storage.mjs'
+import $Storage from './$Storage.mjs'
 
 export default class ENV {
-	#name = "ENV"
-	#version = '1.6.3'
+	static name = "ENV"
+	static version = '1.6.4'
+	static about() { return console.log(`\n🟧 ${this.name} v${this.version}\n`) }
 
 	constructor(name, opts) {
-		this.data = null
-		this.dataFile = 'box.dat'
+		console.log(`\n🟧 ${ENV.name} v${ENV.version}\n`)
+		this.name = name
 		this.logs = []
 		this.isMute = false
 		this.logSeparator = '\n'
@@ -15,8 +16,6 @@ export default class ENV {
 		this.startTime = new Date().getTime()
 		Object.assign(this, opts)
 		this.log(`\n🚩 开始!\n${name}\n`)
-		console.log(`\n🟧 ${this.#name} v${this.#version}\n`)
-		this.Storage = new Storage(name, opts)
 	}
 
 	platform() {
@@ -435,7 +434,7 @@ export default class ENV {
 		/***************** BoxJs *****************/
 		// 包装为局部变量，用完释放内存
 		// BoxJs的清空操作返回假值空字符串, 逻辑或操作符会在左侧操作数为假值时返回右侧操作数。
-		let BoxJs = this.Storage.getItem(key) ?? database;
+		let BoxJs = $Storage.getItem(key, database);
 		//this.log(`🚧 ${this.name}, Get Environment Variables`, `BoxJs类型: ${typeof BoxJs}`, `BoxJs内容: ${JSON.stringify(BoxJs)}`, "");
 		/***************** Argument *****************/
 		let Argument = {};
