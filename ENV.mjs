@@ -1,8 +1,9 @@
 import _ from './Lodash.mjs'
+import $Storage from './$Storage.mjs'
 
 export default class ENV {
 	static name = "ENV"
-	static version = '1.7.0'
+	static version = '1.7.1'
 	static about() { return console.log(`\n🟧 ${this.name} v${this.version}\n`) }
 
 	constructor(name, opts) {
@@ -10,6 +11,7 @@ export default class ENV {
 		this.name = name
 		this.logs = []
 		this.isMute = false
+		this.isMuteLog = false
 		this.logSeparator = '\n'
 		this.encoding = 'utf-8'
 		this.startTime = new Date().getTime()
@@ -57,33 +59,28 @@ export default class ENV {
 		return 'Egern' === this.platform()
 	}
 
-	getScript(url) {
-		return new Promise((resolve) => {
-			this.get({ url }, (error, response, body) => resolve(body))
-		})
+	async getScript(url) {
+		return await this.fetch(url).then(response => response.body);
 	}
 
-	runScript(script, runOpts) {
-		return new Promise((resolve) => {
-			let httpapi = this.Storage.getItem('@chavy_boxjs_userCfgs.httpapi')
-			httpapi = httpapi ? httpapi.replace(/\n/g, '').trim() : httpapi
-			let httpapi_timeout = this.Storage.getItem('@chavy_boxjs_userCfgs.httpapi_timeout')
-			httpapi_timeout = httpapi_timeout ? httpapi_timeout * 1 : 20
-			httpapi_timeout =
-				runOpts && runOpts.timeout ? runOpts.timeout : httpapi_timeout
-			const [key, addr] = httpapi.split('@')
-			const opts = {
-				url: `http://${addr}/v1/scripting/evaluate`,
-				body: {
-					script_text: script,
-					mock_type: 'cron',
-					timeout: httpapi_timeout
-				},
-				headers: { 'X-Key': key, 'Accept': '*/*' },
+	async runScript(script, runOpts) {
+		let httpapi = $Storage.getItem('@chavy_boxjs_userCfgs.httpapi');
+		httpapi = httpapi?.replace?.(/\n/g, '')?.trim();
+		let httpapi_timeout = $Storage.getItem('@chavy_boxjs_userCfgs.httpapi_timeout');
+		httpapi_timeout = (httpapi_timeout * 1) ?? 20;
+		httpapi_timeout = runOpts?.timeout ?? httpapi_timeout;
+		const [password, address] = httpapi.split('@');
+		const request = {
+			url: `http://${address}/v1/scripting/evaluate`,
+			body: {
+				script_text: script,
+				mock_type: 'cron',
 				timeout: httpapi_timeout
-			}
-			this.post(opts, (error, response, body) => resolve(body))
-		}).catch((e) => this.logErr(e))
+			},
+			headers: { 'X-Key': password, 'Accept': '*/*' },
+			timeout: httpapi_timeout
+		}
+		await this.fetch(request).then(response => response.body, error => this.logErr(error));
 	}
 
 	initGotEnv(opts) {
