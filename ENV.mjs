@@ -3,7 +3,7 @@ import $Storage from './$Storage.mjs'
 
 export default class ENV {
 	static name = "ENV"
-	static version = '1.7.1'
+	static version = '1.7.2'
 	static about() { return console.log(`\n🟧 ${this.name} v${this.version}\n`) }
 
 	constructor(name, opts) {
@@ -96,6 +96,7 @@ export default class ENV {
 	}
 
 	async fetch(request = {} || "", option = {}) {
+		// 初始化参数
 		switch (request.constructor) {
 			case Object:
 				request = { ...request, ...option };
@@ -104,13 +105,19 @@ export default class ENV {
 				request = { "url": request, ...option };
 				break;
 		};
+		// 自动判断请求方法
 		if (!request.method) {
 			request.method = "GET";
 			if (request.body ?? request.bodyBytes) request.method = "POST";
 		};
+		// 移除请求头中的部分参数, 让其自动生成
+		delete request.headers?.Host;
+		delete request.headers?.[":authority"];
 		delete request.headers?.['Content-Length'];
 		delete request.headers?.['content-length'];
+		// 定义请求方法（小写）
 		const method = request.method.toLocaleLowerCase();
+		// 判断平台
 		switch (this.platform()) {
 			case 'Loon':
 			case 'Surge':
@@ -118,15 +125,22 @@ export default class ENV {
 			case 'Egern':
 			case 'Shadowrocket':
 			default:
-				// 移除不可写字段
-				delete request.id;
-				// 添加策略组
+				// 转换请求参数
 				if (request.policy) {
 					if (this.isLoon()) request.node = request.policy;
 					if (this.isStash()) _.set(request, "headers.X-Stash-Selected-Proxy", encodeURI(request.policy));
 				};
-				// 判断请求数据类型
-				if (ArrayBuffer.isView(request.body)) request["binary-mode"] = true;
+				if (request.redirection) request["auto-redirect"] = request.redirection;
+				// 转换请求体
+				if (request.bodyBytes && !request.body) {
+					request.body = request.bodyBytes;
+					delete request.bodyBytes;
+				};
+				// 判断请求体类型
+				// if (request.body instanceof ArrayBuffer) request["binary-mode"] = true;
+				// if (ArrayBuffer.isView(request.body)) request["binary-mode"] = true;
+				// 移除不可写字段
+				delete request.id;
 				// 发送请求
 				return await new Promise((resolve, reject) => {
 					$httpClient[method](request, (error, response, body) => {
@@ -143,17 +157,10 @@ export default class ENV {
 					});
 				});
 			case 'Quantumult X':
-				// 添加策略组
+				// 转换请求参数
 				if (request.policy) _.set(request, "opts.policy", request.policy);
-				// 移除不可写字段
-				delete request.charset;
-				delete request.host;
-				delete request.path;
-				delete request.policy;
-				delete request.scheme;
-				delete request.sessionIndex;
-				delete request.statusCode;
-				// 判断请求数据类型
+				if (request["auto-redirect"]) _.set(request, "opts.redirection", request["auto-redirect"]);
+				// 转换请求体
 				if (request.body instanceof ArrayBuffer) {
 					request.bodyBytes = request.body;
 					delete request.body;
@@ -161,6 +168,20 @@ export default class ENV {
 					request.bodyBytes = request.body.buffer.slice(request.body.byteOffset, request.body.byteLength + request.body.byteOffset);
 					delete object.body;
 				} else if (request.body) delete request.bodyBytes;
+				// 移除不可写字段
+				delete request["auto-redirect"];
+				delete request["auto-cookie"];
+				delete request["binary-mode"];
+				delete request.charset;
+				delete request.host;
+				delete request.insecure;
+				delete request.path;
+				delete request.policy;
+				delete request["policy-descriptor"];
+				delete request.scheme;
+				delete request.sessionIndex;
+				delete request.statusCode;
+				delete request.timeout;
 				// 发送请求
 				return await $task.fetch(request).then(
 					response => {
