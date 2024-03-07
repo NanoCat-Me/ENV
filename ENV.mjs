@@ -3,7 +3,7 @@ import $Storage from './$Storage.mjs'
 
 export default class ENV {
 	static name = "ENV"
-	static version = '1.7.3'
+	static version = '1.7.4'
 	static about() { return console.log(`\n🟧 ${this.name} v${this.version}\n`) }
 
 	constructor(name, opts) {
@@ -394,15 +394,21 @@ export default class ENV {
 			case 'Quantumult X':
 				if (object.policy) _.set(object, "opts.policy", object.policy);
 				// 移除不可写字段
+				delete object["auto-redirect"];
+				delete object["auto-cookie"];
+				delete object["binary-mode"];
 				delete object.charset;
 				delete object.host;
+				delete object.insecure;
 				delete object.method; // 1.4.x 不可写
 				delete object.opt; // $task.fetch() 参数, 不可写
 				delete object.path; // 可写, 但会与 url 冲突
 				delete object.policy;
+				delete object["policy-descriptor"];
 				delete object.scheme;
 				delete object.sessionIndex;
 				delete object.statusCode;
+				delete object.timeout;
 				if (object.body instanceof ArrayBuffer) {
 					object.bodyBytes = object.body;
 					delete object.body;
