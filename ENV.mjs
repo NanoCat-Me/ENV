@@ -3,7 +3,7 @@ import $Storage from './$Storage.mjs'
 
 export default class ENV {
 	static name = "ENV"
-	static version = '1.7.4'
+	static version = '1.8.0'
 	static about() { return console.log(`\n🟧 ${this.name} v${this.version}\n`) }
 
 	constructor(name, opts) {
@@ -17,6 +17,37 @@ export default class ENV {
 		this.startTime = new Date().getTime()
 		Object.assign(this, opts)
 		this.log(`\n🚩 开始!\n${name}\n`)
+	}
+	
+	environment() {
+		switch (this.platform()) {
+			case 'Surge':
+				$environment.app = 'Surge';
+				return $environment
+			case 'Stash':
+				$environment.app = 'Stash';
+				return $environment
+			case 'Egern':
+				$environment.app = 'Egern';
+				return $environment
+			case 'Loon':
+				let environment = $loon.split(' ');
+				return {
+					"device": environment[0],
+					"ios": environment[1],
+					"loon-version": environment[2],
+					"app": "Loon"
+				};
+			case 'Quantumult X':
+				return {
+					"app": "Quantumult X"
+				};
+			case 'Node.js':
+				process.env.app = 'Node.js';
+				return process.env
+			default:
+				return {}
+		}
 	}
 
 	platform() {
