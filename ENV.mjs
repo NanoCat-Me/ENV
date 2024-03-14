@@ -3,7 +3,7 @@ import $Storage from './$Storage.mjs'
 
 export default class ENV {
 	static name = "ENV"
-	static version = '1.8.0'
+	static version = '1.8.1'
 	static about() { return console.log(`\n🟧 ${this.name} v${this.version}\n`) }
 
 	constructor(name, opts) {
@@ -160,6 +160,7 @@ export default class ENV {
 				if (request.policy) {
 					if (this.isLoon()) request.node = request.policy;
 					if (this.isStash()) _.set(request, "headers.X-Stash-Selected-Proxy", encodeURI(request.policy));
+					if (this.isShadowrocket()) _.set(request, "headers.X-Surge-Proxy", request.policy);
 				};
 				if (typeof request.redirection === "boolean") request["auto-redirect"] = request.redirection;
 				// 转换请求体
