@@ -3,7 +3,7 @@ import $Storage from './$Storage.mjs'
 
 export default class ENV {
 	static name = "ENV"
-	static version = '1.8.1'
+	static version = '1.8.2'
 	static about() { return console.log(`\n🟧 ${this.name} v${this.version}\n`) }
 
 	constructor(name, opts) {
@@ -157,6 +157,10 @@ export default class ENV {
 			case 'Shadowrocket':
 			default:
 				// 转换请求参数
+				if (request.timeout) {
+					request.timeout = parseInt(request.timeout, 10);
+					if (this.isSurge()) {} else request.timeout = request.timeout * 1000;
+				};
 				if (request.policy) {
 					if (this.isLoon()) request.node = request.policy;
 					if (this.isStash()) _.set(request, "headers.X-Stash-Selected-Proxy", encodeURI(request.policy));
